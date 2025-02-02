@@ -1,129 +1,83 @@
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include <semaphore.h>
 #include <unistd.h>
-#include <string.h>
-#include <time.h>
 
-// Define constants for sports and player counts 
-#define BASEBALL_PLAYERS 36 
+#define BASEBALL_PLAYERS 36
 #define FOOTBALL_PLAYERS 44
-#define RUGBY_PLAYERS 60 
+#define RUGBY_PLAYERS 60
 
-// Define the number of teams for each sport 
-#define BASEBALL_TEAMS 4 
-#define FOOTBALL_TEAMS 4 
-#define RUGBY_TEAMS 4 
+#define BASEBALL_FIELD 18
+#define FOOTBALL_FIELD 22
+#define RUGBY_MAX_PLAYERS 30
 
-// Define team sizes 
-#define BASEBALL_TEAM_SIZE 9 
-#define FOOTBALL_TEAM_SIZE 11 
-#define RUGBY_TEAM_SIZE 15 
+pthread_mutex_t field_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t field_cond = PTHREAD_COND_INITIALIZER;
+int active_sport = 0;  // 0: none, 1: baseball, 2: football, 3: rugby
 
-// Global variable to track the ongoing sport and synchronization primitives 
-pthread_mutex_t field_lock; // Mutex to control access to the field 
-sem_t field_semaphore; // Semaphore to control player entry 
+typedef struct {
+    int sport_id;         // Use an integer identifier for the sport
+    int required_players;
+    int max_players;
+    int* player_list;
+} Game;
 
-// Variable to track the currently ongoing sport
-char* current_sport = NULL;  // Could be "Baseball", "Football", or "Rugby"
-
-// Function to initialize synchronization 
-void init_sync() {
-    pthread_mutex_init(&field_lock, NULL);
-    sem_init(&field_semaphore, 0, 1);  // Only one sport can be played at a time
-}
-
-// Function to clean up synchronization
-void destroy_sync() {
-    pthread_mutex_destroy(&field_lock);
-    sem_destroy(&field_semaphore);
-}
-
-// Function to simulate player action
-void* player_action(void* arg) {
-    // Simulate the random wait time for a player arriving at the park
-    srand(time(NULL));
-    int wait_time = rand() % 5 + 1;  // Wait between 1 to 5 seconds
-    sleep(wait_time);
-
-    // Cast the argument to a player type and sport
-    char* player_type = (char*)arg;
-
-    pthread_mutex_lock(&field_lock);
-
-    // Check if the field is occupied by a different sport
-    while (current_sport != NULL && strcmp(current_sport, player_type) != 0) {
-        // If the sport is different, the player must wait for the field to clear
-        pthread_mutex_unlock(&field_lock);
-        sem_wait(&field_semaphore);  // Wait for field to become available
-        pthread_mutex_lock(&field_lock);
-    }
-
-    // Now the player can play if it's their sport's turn
-    if (current_sport == NULL) {
-        current_sport = player_type;  // Set the field for this sport
-    }
-
-    // Simulate the player playing on the field
-    printf("%s player enters the field.\n", player_type);
-    int game_time = rand() % 3 + 1;  // Random game time (1 to 3 seconds)
-    sleep(game_time);  // Simulate playing time
+void* play_game(void* arg) {
+    Game* game = (Game*)arg;
     
-    // After playing, leave the field
-    printf("%s player leaves the field.\n", player_type);
-
-    // If all players of this sport leave, reset the sport to NULL
-    current_sport = NULL;
-
-    // Signal that the field is available for others
-    sem_post(&field_semaphore);
-
-    pthread_mutex_unlock(&field_lock);
-
+    pthread_mutex_lock(&field_mutex);
+    while (active_sport != 0 && active_sport != game->sport_id) {
+        pthread_cond_wait(&field_cond, &field_mutex);
+    }
+    
+    active_sport = game->sport_id;  // Set active sport using integer ID
+    
+    // Simulate game play
+    for (int i = 0; i < game->required_players; i++) {
+        printf("[Sport %d: %3d] Playing at Position %d\n", game->sport_id, game->player_list[i], i + 1);
+        usleep(500000);  // Simulate time to play (half a second per position)
+    }
+    
+    printf("[Sport %d: %3d] Game <<ENDED>>\n", game->sport_id, game->player_list[0]);
+    
+    // Finish the game and allow the field to be used by another sport
+    active_sport = 0;
+    pthread_cond_broadcast(&field_cond);
+    
+    pthread_mutex_unlock(&field_mutex);
+    
     return NULL;
 }
 
 int main() {
-    // Initialize synchronization mechanisms
-    init_sync();
+    srand(time(NULL));
 
-    // Simulate creating player threads for each sport
-    pthread_t baseball_players[BASEBALL_PLAYERS];
-    pthread_t football_players[FOOTBALL_PLAYERS];
-    pthread_t rugby_players[RUGBY_PLAYERS];
+    // Set up the players for each sport
+    int baseball_players[BASEBALL_PLAYERS];
+    int football_players[FOOTBALL_PLAYERS];
+    int rugby_players[RUGBY_PLAYERS];
+    
+    // Fill player IDs (just for simulation purposes)
+    for (int i = 0; i < BASEBALL_PLAYERS; i++) baseball_players[i] = rand() % 100;
+    for (int i = 0; i < FOOTBALL_PLAYERS; i++) football_players[i] = rand() % 100;
+    for (int i = 0; i < RUGBY_PLAYERS; i++) rugby_players[i] = rand() % 100;
 
-    // Create baseball players
-    for (int i = 0; i < BASEBALL_PLAYERS; i++) {
-        char* player_type = "Baseball";
-        pthread_create(&baseball_players[i], NULL, player_action, (void*)player_type);
-    }
-
-    // Create football players
-    for (int i = 0; i < FOOTBALL_PLAYERS; i++) {
-        char* player_type = "Football";
-        pthread_create(&football_players[i], NULL, player_action, (void*)player_type);
-    }
-
-    // Create rugby players
-    for (int i = 0; i < RUGBY_PLAYERS; i++) {
-        char* player_type = "Rugby";
-        pthread_create(&rugby_players[i], NULL, player_action, (void*)player_type);
-    }
-
-    // Join player threads
-    for (int i = 0; i < BASEBALL_PLAYERS; i++) {
-        pthread_join(baseball_players[i], NULL);
-    }
-    for (int i = 0; i < FOOTBALL_PLAYERS; i++) {
-        pthread_join(football_players[i], NULL);
-    }
-    for (int i = 0; i < RUGBY_PLAYERS; i++) {
-        pthread_join(rugby_players[i], NULL);
-    }
-
-    // Clean up synchronization before exiting
-    destroy_sync();
-
+    // Create the sport games
+    Game baseball = {1, BASEBALL_FIELD, BASEBALL_PLAYERS, baseball_players};  // Sport ID = 1 for Baseball
+    Game football = {2, FOOTBALL_FIELD, FOOTBALL_PLAYERS, football_players};  // Sport ID = 2 for Football
+    Game rugby = {3, RUGBY_MAX_PLAYERS, RUGBY_PLAYERS, rugby_players};         // Sport ID = 3 for Rugby
+    
+    // Create threads for sports (For simplicity, assuming we can start one sport at a time)
+    pthread_t baseball_thread, football_thread, rugby_thread;
+    
+    pthread_create(&baseball_thread, NULL, play_game, (void*)&baseball);
+    pthread_create(&football_thread, NULL, play_game, (void*)&football);
+    pthread_create(&rugby_thread, NULL, play_game, (void*)&rugby);
+    
+    // Wait for threads to complete
+    pthread_join(baseball_thread, NULL);
+    pthread_join(football_thread, NULL);
+    pthread_join(rugby_thread, NULL);
+    
     return 0;
 }
