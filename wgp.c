@@ -32,29 +32,26 @@ void* play_game(void* arg) {
     
     active_sport = game->sport_id;  // Set active sport using integer ID
 
-    if(game->sport_id == 3){ //if rugby is chosen as the sports ID
+        if (game->sport_id == 3) { // if rugby is chosen as the sport ID
         int players_on_field = 0;
-        for(int i = 0; i< game ->max_players; i+=2){
-            if(players_on_field + 2 <= game->max_players){
-                printf("[Sport %d: %3d] Pairing players %d and %d\n", game->sport_id, game->player_list[i], game->player_list[i+1]);
+        for (int i = 0; i < game->max_players; i += 2) {
+            if (players_on_field + 2 <= game->max_players) {
+                printf("[Sport %d] Pairing players %d and %d\n", game->sport_id, game->player_list[i], game->player_list[i+1]);
                 usleep(500000);
-                players_on_field +=2;
-
-            } else{
+                players_on_field += 2;
+            } else {
                 break;
             }
         }
-        printf("[Sports %d]Game ENDED with %d players\n", game->sport_id, players_on_field);
-    } 
-    
-    else{
-        for(int i = 0; i < game->required_players;i++){
-            printf("[Sports %d: %3d]Playing at Position %d\n", game->sport_id, game->player_list[i], i+1);
+        printf("[Sport %d] Game ENDED with %d players\n", game->sport_id, players_on_field);
+    } else {
+        for (int i = 0; i < game->required_players; i++) {
+            printf("[Sport %d: %d] Playing at Position %d\n", game->sport_id, game->player_list[i], i + 1);
             usleep(500000);
         }
-        printf("[Sports %d: %3d] Game Ended", game->sport_id, game->player_list[0]);
+        printf("[Sport %d] Game Ended\n", game->sport_id);
     }
-    
+        
 
     // Finish the game and allow the field to be used by another sport
     active_sport = 0;
