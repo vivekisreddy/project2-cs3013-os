@@ -37,7 +37,7 @@ void* play_game(void* arg) {
             
             // Simulate the game, player-specific task
             if (player->sport_id == 3) {  // Rugby: Maximize player pairing
-                printf("[Player %d from Rugby] Playing with a partner\n", player->player_id);
+                printf("[Player %d from Rugby] Playing with partner: %d\n", player->player_id, player->player_id + 1);
                 sleep(1);
             } else {  // Baseball and Football: Exact number of players
                 printf("[Player %d from Sport %d] Playing at position\n", player->player_id, player->sport_id);
@@ -94,7 +94,7 @@ int main() {
 
         // Loop through each player and print actions
         for (int j = 0; j < player_count[i]; j++) {
-            printf("[%s: %d] Playing at position %d\n", sport_names[i], j+1, j+1);
+            printf("[%s: %d] Playing at position %d\n", sport_names[i], j + 1, j + 1);
         }
 
         // Optionally, end the game for the sport
@@ -102,27 +102,32 @@ int main() {
     }
 
     // Create player threads for each sport
-    pthread_t baseball_threads[BASEBALL_PLAYERS], football_threads[FOOTBALL_PLAYERS], rugby_threads[RUGBY_PLAYERS];
+    pthread_t baseball_threads[BASEBALL_FIELD], football_threads[FOOTBALL_FIELD], rugby_threads[RUGBY_MAX_PLAYERS];
 
-    // Create player threads
-    for (int i = 0; i < BASEBALL_PLAYERS; i++) {
+    // Create player threads for baseball and football
+    for (int i = 0; i < BASEBALL_FIELD; i++) {
         pthread_create(&baseball_threads[i], NULL, play_game, (void*)&baseball_players[i]);
     }
-    for (int i = 0; i < FOOTBALL_PLAYERS; i++) {
+    for (int i = 0; i < FOOTBALL_FIELD; i++) {
         pthread_create(&football_threads[i], NULL, play_game, (void*)&football_players[i]);
     }
-    for (int i = 0; i < RUGBY_PLAYERS; i++) {
-        pthread_create(&rugby_threads[i], NULL, play_game, (void*)&rugby_players[i]);
+
+    // Create player threads for rugby, but in pairs
+    int rugby_pair_index = 0;
+    for (int i = 0; i < RUGBY_MAX_PLAYERS - 1; i += 2) {
+        printf("Pairing Rugby players: %d and %d\n", rugby_players[i].player_id, rugby_players[i + 1].player_id);
+        pthread_create(&rugby_threads[rugby_pair_index++], NULL, play_game, (void*)&rugby_players[i]);
+        pthread_create(&rugby_threads[rugby_pair_index++], NULL, play_game, (void*)&rugby_players[i + 1]);
     }
 
     // Wait for all player threads to complete
-    for (int i = 0; i < BASEBALL_PLAYERS; i++) {
+    for (int i = 0; i < BASEBALL_FIELD; i++) {
         pthread_join(baseball_threads[i], NULL);
     }
-    for (int i = 0; i < FOOTBALL_PLAYERS; i++) {
+    for (int i = 0; i < FOOTBALL_FIELD; i++) {
         pthread_join(football_threads[i], NULL);
     }
-    for (int i = 0; i < RUGBY_PLAYERS; i++) {
+    for (int i = 0; i < rugby_pair_index; i++) {
         pthread_join(rugby_threads[i], NULL);
     }
 
