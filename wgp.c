@@ -17,24 +17,21 @@ typedef struct {
     int sport_id;  // Sport the player is participating in
 } Player;
 
-// Mutex for the field to ensure only one player from any sport plays at any given time
-pthread_mutex_t field_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 // Array of sport names and number of players for each sport
 const char* sport_names[] = {"Baseball", "Football", "Rugby"};
 int player_count[] = {BASEBALL_PLAYERS, FOOTBALL_PLAYERS, RUGBY_PLAYERS};
 int total_sports = 3;
 
-// Mutex lock and thread control
+// Thread function that simulates playing a game
 void* play_game(void* arg) {
     Player* player = (Player*)arg;
 
     while (1) {
-        // Each player tries to lock the field mutex to access the field and play
-        if (pthread_mutex_trylock(&field_mutex) == 0) {
-            // Successfully acquired the field (playing the game)
+        // Decentralized check: Random chance to decide whether the player gets to play
+        if (rand() % 10 > 5) {  // 50% chance of success (for demonstration)
+            // Successfully decided to play
             printf("[Player %d from Sport %d] Ready to play\n", player->player_id, player->sport_id);
-            
+
             // Simulate the game, player-specific task
             if (player->sport_id == 3) {  // Rugby: Maximize player pairing
                 printf("[Player %d from Rugby] Playing with partner: %d\n", player->player_id, player->player_id + 1);
@@ -46,13 +43,10 @@ void* play_game(void* arg) {
 
             // Game ends for this player
             printf("[Player %d from Sport %d] Finished\n", player->player_id, player->sport_id);
-
-            // Release the field for other players
-            pthread_mutex_unlock(&field_mutex);
             break;
         } else {
-            // If the field is occupied, the player waits for a short random time and tries again
-            usleep(rand() % 100000);
+            // Player waits and tries again if not able to play
+            usleep(rand() % 100000);  // Random delay before retrying
         }
     }
 
