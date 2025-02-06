@@ -2,14 +2,13 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
-#include <unistd.h>
 
 #define NUM_BASEBALL_PLAYERS 36
 #define NUM_FOOTBALL_PLAYERS 44
 #define NUM_RUGBY_PLAYERS 60
 
 // Player types
-typedef enum { BASEBALL, FOOTBALL, RUGBY, NONE } SportType;
+typedef enum { BASEBALL, FOOTBALL, RUGBY } SportType;
 
 // Player structure
 typedef struct {
@@ -22,10 +21,10 @@ Player baseballPlayers[NUM_BASEBALL_PLAYERS];
 Player footballPlayers[NUM_FOOTBALL_PLAYERS];
 Player rugbyPlayers[NUM_RUGBY_PLAYERS];
 
-// Global variables for field state
-SportType currentSport = NONE; // Initially, no sport is using the field
-pthread_mutex_t fieldMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t fieldCond = PTHREAD_COND_INITIALIZER;
+// Mutexes for each sport
+pthread_mutex_t baseballMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t footballMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t rugbyMutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Function to initialize the players for each sport
 void initializePlayers() {
@@ -50,6 +49,7 @@ void initializePlayers() {
 
 // Function to shuffle an array of players randomly
 void shufflePlayers(Player players[], int numPlayers) {
+    srand(time(NULL));
     for (int i = 0; i < numPlayers; i++) {
         int j = rand() % numPlayers;
         Player temp = players[i];
@@ -77,98 +77,89 @@ void playGame(SportType sport, int numPlayersRequired) {
             players = rugbyPlayers;
             totalPlayers = NUM_RUGBY_PLAYERS;
             break;
-        default:
-            return; // Invalid sport
     }
 
     // Shuffle players randomly
     shufflePlayers(players, totalPlayers);
 
     // Ensure exactly the required number of players for the game
-    printf("[%s: %d] Game <<STARTED>>\n", 
-           (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", 
-           numPlayersRequired);
+    printf("[%s: %d] Game <<STARTED>>\n", (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", numPlayersRequired);
     
     for (int i = 0; i < numPlayersRequired; i++) {
         printf("[%s: %d] Playing at position %d\n", 
                (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", 
                players[i].id, 
                i + 1);
-        usleep(100000); // Simulate game play with a delay
     }
     
-    printf("[%s: %d] Game <<ENDED>>\n", 
-           (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", 
-           numPlayersRequired);
+    printf("[%s: %d] Game <<ENDED>>\n", (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", numPlayersRequired);
 }
 
-// Function to manage the field and execute games for baseball, football, and rugby
-void* manageField(void* arg) {
-    SportType sport = *(SportType*)arg;
+// Function to handle a player choosing a sport and playing
+void* playerThread(void* arg) {
+    Player* player = (Player*)arg;
 
-    pthread_mutex_lock(&fieldMutex);
+    // Loop to keep playing games indefinitely
+    while (1) {
+        switch (player->sport) {
+            case BASEBALL:
+                pthread_mutex_lock(&baseballMutex);
+                if (NUM_BASEBALL_PLAYERS >= 18) {
+                    playGame(BASEBALL, 18); // Baseball needs 18 players
+                }
+                pthread_mutex_unlock(&baseballMutex);
+                break;
 
-    // Wait until the field is free for the current sport
-    while (currentSport != NONE && currentSport != sport) {
-        pthread_cond_wait(&fieldCond, &fieldMutex);
-    }
+            case FOOTBALL:
+                pthread_mutex_lock(&footballMutex);
+                if (NUM_FOOTBALL_PLAYERS >= 22) {
+                    playGame(FOOTBALL, 22); // Football needs 22 players
+                }
+                pthread_mutex_unlock(&footballMutex);
+                break;
 
-    // Set the field to the current sport
-    currentSport = sport;
-
-    pthread_mutex_unlock(&fieldMutex);
-
-    // Play the game
-    switch (sport) {
-        case BASEBALL:
-            if (NUM_BASEBALL_PLAYERS >= 18) {
-                playGame(BASEBALL, 18);
-            }
-            break;
-        case FOOTBALL:
-            if (NUM_FOOTBALL_PLAYERS >= 22) {
-                playGame(FOOTBALL, 22);
-            }
-            break;
-        case RUGBY:
-            if (NUM_RUGBY_PLAYERS >= 2) {
+            case RUGBY:
+                pthread_mutex_lock(&rugbyMutex);
                 int rugbyPlayersToPlay = (NUM_RUGBY_PLAYERS > 30) ? 30 : NUM_RUGBY_PLAYERS;
                 if (rugbyPlayersToPlay % 2 != 0) rugbyPlayersToPlay--; // Ensure it's even
-                playGame(RUGBY, rugbyPlayersToPlay);
-            }
-            break;
-        default:
-            break;
+                if (rugbyPlayersToPlay >= 2) {
+                    playGame(RUGBY, rugbyPlayersToPlay); // Rugby needs at least 2 players, max 30
+                }
+                pthread_mutex_unlock(&rugbyMutex);
+                break;
+        }
     }
-
-    // Release the field
-    pthread_mutex_lock(&fieldMutex);
-    currentSport = NONE;
-    pthread_cond_broadcast(&fieldCond); // Notify all waiting threads
-    pthread_mutex_unlock(&fieldMutex);
 
     return NULL;
 }
 
 int main() {
-    // Seed the random number generator
-    srand(time(NULL));
-
     // Initialize all players
     initializePlayers();
 
-    // Create threads for each sport
-    pthread_t baseballThread, footballThread, rugbyThread;
-    SportType baseball = BASEBALL, football = FOOTBALL, rugby = RUGBY;
+    // Create threads for all players
+    pthread_t playerThreads[NUM_BASEBALL_PLAYERS + NUM_FOOTBALL_PLAYERS + NUM_RUGBY_PLAYERS];
+    int threadIndex = 0;
 
-    pthread_create(&baseballThread, NULL, manageField, &baseball);
-    pthread_create(&footballThread, NULL, manageField, &football);
-    pthread_create(&rugbyThread, NULL, manageField, &rugby);
+    // Create threads for baseball players
+    for (int i = 0; i < NUM_BASEBALL_PLAYERS; i++) {
+        pthread_create(&playerThreads[threadIndex++], NULL, playerThread, &baseballPlayers[i]);
+    }
 
-    // Wait for all threads to finish
-    pthread_join(baseballThread, NULL);
-    pthread_join(footballThread, NULL);
-    pthread_join(rugbyThread, NULL);
+    // Create threads for football players
+    for (int i = 0; i < NUM_FOOTBALL_PLAYERS; i++) {
+        pthread_create(&playerThreads[threadIndex++], NULL, playerThread, &footballPlayers[i]);
+    }
+
+    // Create threads for rugby players
+    for (int i = 0; i < NUM_RUGBY_PLAYERS; i++) {
+        pthread_create(&playerThreads[threadIndex++], NULL, playerThread, &rugbyPlayers[i]);
+    }
+
+    // Wait for all threads to finish (note: threads will run indefinitely)
+    for (int i = 0; i < NUM_BASEBALL_PLAYERS + NUM_FOOTBALL_PLAYERS + NUM_RUGBY_PLAYERS; i++) {
+        pthread_join(playerThreads[i], NULL);
+    }
 
     return 0;
 }
