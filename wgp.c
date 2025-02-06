@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
+#include <unistd.h>  
 
 #define NUM_BASEBALL_PLAYERS 36
 #define NUM_FOOTBALL_PLAYERS 44
 #define NUM_RUGBY_PLAYERS 60
+#define TOTAL_PLAYERS (NUM_BASEBALL_PLAYERS + NUM_FOOTBALL_PLAYERS + NUM_RUGBY_PLAYERS)
 
 // Player types
 typedef enum { BASEBALL, FOOTBALL, RUGBY } SportType;
@@ -16,10 +18,8 @@ typedef struct {
     SportType sport;
 } Player;
 
-// Arrays to hold players for each sport
-Player baseballPlayers[NUM_BASEBALL_PLAYERS];
-Player footballPlayers[NUM_FOOTBALL_PLAYERS];
-Player rugbyPlayers[NUM_RUGBY_PLAYERS];
+// Arrays to hold all players
+Player allPlayers[TOTAL_PLAYERS];
 
 // Mutexes for each sport
 pthread_mutex_t baseballMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -34,22 +34,27 @@ int nextSportToPlay = BASEBALL;
 
 // Function to initialize the players for each sport
 void initializePlayers() {
+    int playerIndex = 0;
+    
     // Initialize baseball players
     for (int i = 0; i < NUM_BASEBALL_PLAYERS; i++) {
-        baseballPlayers[i].id = i + 1;
-        baseballPlayers[i].sport = BASEBALL;
+        allPlayers[playerIndex].id = 0; // Placeholder for now, will shuffle later
+        allPlayers[playerIndex].sport = BASEBALL;
+        playerIndex++;
     }
 
     // Initialize football players
     for (int i = 0; i < NUM_FOOTBALL_PLAYERS; i++) {
-        footballPlayers[i].id = i + 1;
-        footballPlayers[i].sport = FOOTBALL;
+        allPlayers[playerIndex].id = 0; // Placeholder for now, will shuffle later
+        allPlayers[playerIndex].sport = FOOTBALL;
+        playerIndex++;
     }
 
     // Initialize rugby players
     for (int i = 0; i < NUM_RUGBY_PLAYERS; i++) {
-        rugbyPlayers[i].id = i + 1;
-        rugbyPlayers[i].sport = RUGBY;
+        allPlayers[playerIndex].id = 0; // Placeholder for now, will shuffle later
+        allPlayers[playerIndex].sport = RUGBY;
+        playerIndex++;
     }
 }
 
@@ -64,6 +69,20 @@ void shufflePlayers(Player players[], int numPlayers) {
     }
 }
 
+// Function to read the seed from a file
+int readSeedFromFile(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    int seed;
+    if (file != NULL) {
+        fscanf(file, "%d", &seed);
+        fclose(file);
+    } else {
+        // If the file can't be opened, use a default seed value
+        seed = time(NULL);
+    }
+    return seed;
+}
+
 // Function to play a game for baseball, football, or rugby
 void playGame(SportType sport, int numPlayersRequired) {
     Player *players;
@@ -72,15 +91,15 @@ void playGame(SportType sport, int numPlayersRequired) {
     // Select appropriate sport and number of players
     switch (sport) {
         case BASEBALL:
-            players = baseballPlayers;
+            players = allPlayers;
             totalPlayers = NUM_BASEBALL_PLAYERS;
             break;
         case FOOTBALL:
-            players = footballPlayers;
+            players = allPlayers + NUM_BASEBALL_PLAYERS; // Start from football players
             totalPlayers = NUM_FOOTBALL_PLAYERS;
             break;
         case RUGBY:
-            players = rugbyPlayers;
+            players = allPlayers + NUM_BASEBALL_PLAYERS + NUM_FOOTBALL_PLAYERS; // Start from rugby players
             totalPlayers = NUM_RUGBY_PLAYERS;
             break;
     }
@@ -125,6 +144,10 @@ void playGame(SportType sport, int numPlayersRequired) {
 void* playerThread(void* arg) {
     Player* player = (Player*)arg;
 
+    // Read seed from file and seed the random number generator
+    int seed = readSeedFromFile("seed.txt");
+    srand(seed);
+
     // Loop to keep playing games indefinitely
     while (1) {
         pthread_mutex_lock(&fairnessMutex); // Lock fairness mutex to enforce turn-based play
@@ -135,6 +158,10 @@ void* playerThread(void* arg) {
             sched_yield(); // Yield to allow other threads to progress
             pthread_mutex_lock(&fairnessMutex); // Re-acquire fairness lock
         }
+
+        // Introduce a random delay to simulate randomness in scheduling
+        int delayTime = rand() % 1000000; // Random delay time in microseconds
+        usleep(delayTime); // Delay to simulate randomness
 
         // Start the game for the sport
         switch (player->sport) {
@@ -184,28 +211,31 @@ int main() {
     // Initialize all players
     initializePlayers();
 
-    // Create threads for all players
-    pthread_t playerThreads[NUM_BASEBALL_PLAYERS + NUM_FOOTBALL_PLAYERS + NUM_RUGBY_PLAYERS];
-    int threadIndex = 0;
-
-    // Create threads for baseball players
+    // Shuffle all players to assign random IDs from 1-140
+    int allPlayerIndex = 0;
     for (int i = 0; i < NUM_BASEBALL_PLAYERS; i++) {
-        pthread_create(&playerThreads[threadIndex++], NULL, playerThread, &baseballPlayers[i]);
+        allPlayers[allPlayerIndex].id = i + 1; // Assign ID
+        allPlayerIndex++;
     }
-
-    // Create threads for football players
     for (int i = 0; i < NUM_FOOTBALL_PLAYERS; i++) {
-        pthread_create(&playerThreads[threadIndex++], NULL, playerThread, &footballPlayers[i]);
+        allPlayers[allPlayerIndex].id = NUM_BASEBALL_PLAYERS + i + 1; // Assign ID
+        allPlayerIndex++;
     }
-
-    // Create threads for rugby players
     for (int i = 0; i < NUM_RUGBY_PLAYERS; i++) {
-        pthread_create(&playerThreads[threadIndex++], NULL, playerThread, &rugbyPlayers[i]);
+        allPlayers[allPlayerIndex].id = NUM_BASEBALL_PLAYERS + NUM_FOOTBALL_PLAYERS + i + 1; // Assign ID
+        allPlayerIndex++;
+    }
+    shufflePlayers(allPlayers, TOTAL_PLAYERS);
+
+    // Create threads for each player
+    pthread_t threads[TOTAL_PLAYERS];
+    for (int i = 0; i < TOTAL_PLAYERS; i++) {
+        pthread_create(&threads[i], NULL, playerThread, (void*)&allPlayers[i]);
     }
 
-    // Wait for all threads to finish (note: threads will run indefinitely)
-    for (int i = 0; i < NUM_BASEBALL_PLAYERS + NUM_FOOTBALL_PLAYERS + NUM_RUGBY_PLAYERS; i++) {
-        pthread_join(playerThreads[i], NULL);
+    // Wait for threads to finish
+    for (int i = 0; i < TOTAL_PLAYERS; i++) {
+        pthread_join(threads[i], NULL);
     }
 
     return 0;
