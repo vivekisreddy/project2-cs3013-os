@@ -83,6 +83,45 @@ int readSeedFromFile(const char* filename) {
     return seed;
 }
 
+// Function to simulate game time
+void simulateGameTime() {
+    // Random time between 1 and 5 seconds
+    int gameTime = rand() % 3 + 1;
+    sleep(gameTime);  // Simulate the game duration
+    printf("Game played for %d seconds\n", gameTime);
+}
+
+// Function to simulate game time for rugby players
+void simulateRugbyGameTime() {
+    // Random time between 1 and 3 seconds for each pair
+    int gameTime = rand() % 3 + 1;
+    sleep(gameTime);  // Simulate the game duration
+    printf("Pair played for %d seconds\n", gameTime);
+}
+
+// Function to play a game for rugby with pairs
+void playRugbyGame(Player* players, int numPlayersRequired) {
+    // Number of pairs
+    int pairCount = numPlayersRequired / 2;
+
+    // Loop through each pair
+    for (int i = 0; i < pairCount; i++) {
+        int player1 = i * 2;
+        int player2 = i * 2 + 1;
+
+        // Print when a pair is ready
+        printf("[Rugby: %d] Pair ready\n", players[player1].id);
+
+        // Print when players are playing at a position
+        printf("[Rugby: %d] Playing at position %d\n", players[player1].id, (i * 2) + 1);
+        printf("[Rugby: %d] Playing at position %d\n", players[player2].id, (i * 2) + 2);
+
+        // Simulate the game time for the pair
+        simulateRugbyGameTime();
+    }
+}
+
+
 // Function to play a game for baseball, football, or rugby
 void playGame(SportType sport, int numPlayersRequired) {
     Player *players;
@@ -107,24 +146,16 @@ void playGame(SportType sport, int numPlayersRequired) {
     // Shuffle players randomly
     shufflePlayers(players, totalPlayers);
 
-    // Ensure exactly the required number of players for the game
+    // Start the game for the sport
     printf("[%s: %d] Game <<STARTED>>\n", 
            (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", numPlayersRequired);
 
     if (sport == RUGBY) {
         // Rugby players must be paired and played sequentially
-        int pairCount = numPlayersRequired / 2; // Number of pairs
-
-        for (int i = 0; i < pairCount; i++) {
-            int player1 = i * 2;
-            int player2 = i * 2 + 1;
-            
-            // Print when a pair is ready
-            printf("[%s: %d] Pair ready\n", "Rugby", players[player1].id);
-
-            // Print when players are playing at a position
-            printf("[%s: %d] Playing at position %d\n", "Rugby", players[player1].id, (i * 2) + 1);
-            printf("[%s: %d] Playing at position %d\n", "Rugby", players[player2].id, (i * 2) + 2);
+        int rugbyPlayersToPlay = (NUM_RUGBY_PLAYERS > 30) ? 30 : NUM_RUGBY_PLAYERS;
+        if (rugbyPlayersToPlay % 2 != 0) rugbyPlayersToPlay--; // Ensure it's even
+        if (rugbyPlayersToPlay >= 2) {
+            playRugbyGame(players, rugbyPlayersToPlay); // Rugby needs at least 2 players, max 30
         }
     } else {
         // For Baseball and Football, print players as usual
@@ -134,6 +165,9 @@ void playGame(SportType sport, int numPlayersRequired) {
                    players[i].id, 
                    i + 1);
         }
+
+        // Simulate game time for baseball and football
+        simulateGameTime();
     }
 
     printf("[%s: %d] Game <<ENDED>>\n", 
@@ -218,22 +252,23 @@ int main() {
         allPlayerIndex++;
     }
     for (int i = 0; i < NUM_FOOTBALL_PLAYERS; i++) {
-        allPlayers[allPlayerIndex].id = NUM_BASEBALL_PLAYERS + i + 1; // Assign ID
+        allPlayers[allPlayerIndex].id = i + 37; // Assign ID
         allPlayerIndex++;
     }
     for (int i = 0; i < NUM_RUGBY_PLAYERS; i++) {
-        allPlayers[allPlayerIndex].id = NUM_BASEBALL_PLAYERS + NUM_FOOTBALL_PLAYERS + i + 1; // Assign ID
+        allPlayers[allPlayerIndex].id = i + 81; // Assign ID
         allPlayerIndex++;
     }
+
     shufflePlayers(allPlayers, TOTAL_PLAYERS);
 
-    // Create threads for each player
+    // Create player threads
     pthread_t threads[TOTAL_PLAYERS];
     for (int i = 0; i < TOTAL_PLAYERS; i++) {
         pthread_create(&threads[i], NULL, playerThread, (void*)&allPlayers[i]);
     }
 
-    // Wait for threads to finish
+    // Wait for all threads to finish
     for (int i = 0; i < TOTAL_PLAYERS; i++) {
         pthread_join(threads[i], NULL);
     }
