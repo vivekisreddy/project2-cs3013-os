@@ -26,6 +26,12 @@ pthread_mutex_t baseballMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t footballMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t rugbyMutex = PTHREAD_MUTEX_INITIALIZER;
 
+// Mutex to enforce fairness (round-robin scheduling)
+pthread_mutex_t fairnessMutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Global variable to track the turn of the next sport
+int nextSportToPlay = BASEBALL;
+
 // Function to initialize the players for each sport
 void initializePlayers() {
     // Initialize baseball players
@@ -33,13 +39,13 @@ void initializePlayers() {
         baseballPlayers[i].id = i + 1;
         baseballPlayers[i].sport = BASEBALL;
     }
-    
+
     // Initialize football players
     for (int i = 0; i < NUM_FOOTBALL_PLAYERS; i++) {
         footballPlayers[i].id = i + 1;
         footballPlayers[i].sport = FOOTBALL;
     }
-    
+
     // Initialize rugby players
     for (int i = 0; i < NUM_RUGBY_PLAYERS; i++) {
         rugbyPlayers[i].id = i + 1;
@@ -83,16 +89,36 @@ void playGame(SportType sport, int numPlayersRequired) {
     shufflePlayers(players, totalPlayers);
 
     // Ensure exactly the required number of players for the game
-    printf("[%s: %d] Game <<STARTED>>\n", (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", numPlayersRequired);
-    
-    for (int i = 0; i < numPlayersRequired; i++) {
-        printf("[%s: %d] Playing at position %d\n", 
-               (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", 
-               players[i].id, 
-               i + 1);
+    printf("[%s: %d] Game <<STARTED>>\n", 
+           (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", numPlayersRequired);
+
+    if (sport == RUGBY) {
+        // Rugby players must be paired and played sequentially
+        int pairCount = numPlayersRequired / 2; // Number of pairs
+
+        for (int i = 0; i < pairCount; i++) {
+            int player1 = i * 2;
+            int player2 = i * 2 + 1;
+            
+            // Print when a pair is ready
+            printf("[%s: %d] Pair ready\n", "Rugby", players[player1].id);
+
+            // Print when players are playing at a position
+            printf("[%s: %d] Playing at position %d\n", "Rugby", players[player1].id, (i * 2) + 1);
+            printf("[%s: %d] Playing at position %d\n", "Rugby", players[player2].id, (i * 2) + 2);
+        }
+    } else {
+        // For Baseball and Football, print players as usual
+        for (int i = 0; i < numPlayersRequired; i++) {
+            printf("[%s: %d] Playing at position %d\n", 
+                   (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", 
+                   players[i].id, 
+                   i + 1);
+        }
     }
-    
-    printf("[%s: %d] Game <<ENDED>>\n", (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", numPlayersRequired);
+
+    printf("[%s: %d] Game <<ENDED>>\n", 
+           (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", numPlayersRequired);
 }
 
 // Function to handle a player choosing a sport and playing
@@ -101,6 +127,16 @@ void* playerThread(void* arg) {
 
     // Loop to keep playing games indefinitely
     while (1) {
+        pthread_mutex_lock(&fairnessMutex); // Lock fairness mutex to enforce turn-based play
+
+        // Wait for the player's sport to be the one that gets to play
+        while (player->sport != nextSportToPlay) {
+            pthread_mutex_unlock(&fairnessMutex); // Release the fairness mutex so other threads can run
+            sched_yield(); // Yield to allow other threads to progress
+            pthread_mutex_lock(&fairnessMutex); // Re-acquire fairness lock
+        }
+
+        // Start the game for the sport
         switch (player->sport) {
             case BASEBALL:
                 pthread_mutex_lock(&baseballMutex);
@@ -128,6 +164,17 @@ void* playerThread(void* arg) {
                 pthread_mutex_unlock(&rugbyMutex);
                 break;
         }
+
+        // Update the next sport to play (round-robin scheduling)
+        if (nextSportToPlay == BASEBALL) {
+            nextSportToPlay = FOOTBALL;
+        } else if (nextSportToPlay == FOOTBALL) {
+            nextSportToPlay = RUGBY;
+        } else {
+            nextSportToPlay = BASEBALL;
+        }
+
+        pthread_mutex_unlock(&fairnessMutex); // Release fairness lock
     }
 
     return NULL;
