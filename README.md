@@ -1,75 +1,19 @@
-## Decentralized Nature of the Program:
+## How your solution avoids depriving the different sports layer types of the field (avoiding thread starving)
 
-My program is a decentralized simulation of multiple sports games (Baseball, Football, and Rugby)
-using multi-threading in C with the pthread library. The decentralization comes from how players (threads)
-operate independently without a central controller dictating when and how games are played. Instead, the
-threads coordinate using mutex locks associated with each sport, ensuring only valid games are initiated while
-still maintaining concurrency. Each thread autonomously selects a sport, waits for its turn, and plays when enough players
-are available.
+- Randomized execution order using shufflePlayers()
+- We used usleep to acquire a lock and play, each player thread sleeps for a random amount of time
+- releasing mutexes after a game completes
+- Fair scheduling via thread join
 
-## How the Program Works:
-Player Initialization:
-Players are categorized into three sports: Baseball, Football, and Rugby.
-Each player is assigned an ID and a reference to the mutex associated with their sport.
-The players are stored in a single array for easy shuffling and management.
+## the kind of test cases would be most effective for identifying potential synchronization issues? Please share at least two cases and share the output of your program.
 
-## Randomized Player Shuffling:
+1. Deadlock Detection
 
-Players are shuffled to ensure randomness in their selection for each game.
-The random seed is read from a file (seed.txt) if available; otherwise, the current time is used as a seed.
+Scenario: Multiple players attempt to lock their respective sport’s mutex simultaneously, leading to a potential deadlock.
+Expected Behavior of the output: The program should ensure that players don’t indefinitely hold locks, leading to deadlocks.
 
 
-## Multi-threaded Execution:
+2. Race Condition Detection
 
-Each player runs in a separate thread (playerThread function).
-Players attempt to participate in a game based on their sport's required number of participants.
-The mutex for the respective sport ensures only one game per sport runs at a time.
-
-## Game Simulation:
-A game starts when enough players for a particular sport are available.
-For Baseball, 18 players are required.
-For Football, 22 players are required.
-For Rugby, up to 30 players can participate in pairs.
-Players are assigned to game positions, and a brief delay (sleep) simulates game duration.
-The game ends after the simulation, and the mutex is released for another batch of players to begin.
-
-## Interpreting the Output:
-
-The sample output demonstrates how different games start and finish, showing which players participate and their positions:
-
-Baseball Game Start:
-[Baseball: 18] Game <<STARTED>>
-
-[Baseball: 41] Playing at position 1
-
-[Baseball: 120] Playing at position 2
-
-...
-
-[Baseball: 81] Playing at position 17
-
-The game starts with 18 randomly selected players.
-Each player's ID and assigned position are printed.
-
-## Game Duration Simulation:
-Game played for X seconds. Simulates the time taken for a game before ending.
-
-Game End Notice:
-
-[Baseball: 18] Game <ENDED>
-
-Marks the end of a game so another one can start.
-
-## Other Sports Execution:
-
-Similar messages appear for Football and Rugby, following the same decentralized approach.
-
-## Decentralization Summary:
-
-No central thread dictates when games happen.
-
-Each player operates independently, waiting for their turn.
-
-Mutex locks ensure sports are played correctly without interfering with others.
-
-The system dynamically organizes games based on available players, making it an autonomous and scalable approach to managing multiple sports simulations.
+Scenario: Multiple threads simultaneously update shared variables (NUM_BASEBALL_PLAYERS, NUM_FOOTBALL_PLAYERS, NUM_RUGBY_PLAYERS) without proper synchronization.
+Expected Behavior of the output: Ensure mutual exclusion to prevent data corruption.
