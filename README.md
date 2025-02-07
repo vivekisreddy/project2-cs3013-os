@@ -39,20 +39,20 @@ The sample output demonstrates how different games start and finish, showing whi
 
 Baseball Game Start:
 [Baseball: 18] Game <<STARTED>>
+
 [Baseball: 41] Playing at position 1
+
 [Baseball: 120] Playing at position 2
+
 ...
+
 [Baseball: 81] Playing at position 17
 
 The game starts with 18 randomly selected players.
-
 Each player's ID and assigned position are printed.
 
-Game Duration Simulation:
-
-Game played for X seconds
-
-Simulates the time taken for a game before ending.
+## Game Duration Simulation:
+Game played for X seconds. Simulates the time taken for a game before ending.
 
 Game End Notice:
 
@@ -60,11 +60,11 @@ Game End Notice:
 
 Marks the end of a game so another one can start.
 
-Other Sports Execution:
+## Other Sports Execution:
 
 Similar messages appear for Football and Rugby, following the same decentralized approach.
 
-Decentralization Summary:
+## Decentralization Summary:
 
 No central thread dictates when games happen.
 
