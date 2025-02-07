@@ -1,4 +1,4 @@
-#include <stdio.h>
+ #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
@@ -30,7 +30,7 @@ pthread_mutex_t rugbyMutex = PTHREAD_MUTEX_INITIALIZER;
 // Function to initialize the players for each sport
 void initializePlayers() {
     int playerIndex = 0;
-    
+   
     // Initialize baseball players
     for (int i = 0; i < NUM_BASEBALL_PLAYERS; i++) {
         allPlayers[playerIndex].id = 0; // Placeholder for now, will shuffle later
@@ -134,7 +134,7 @@ void playGame(SportType sport, int numPlayersRequired) {
 
     shufflePlayers(players, totalPlayers);
 
-    printf("[%s: %d] Game <<STARTED>>\n", 
+    printf("[%s: %d] Game <<STARTED>>\n",
            (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", numPlayersRequired);
 
     if (sport == RUGBY) {
@@ -145,15 +145,15 @@ void playGame(SportType sport, int numPlayersRequired) {
         }
     } else {
         for (int i = 0; i < numPlayersRequired; i++) {
-            printf("[%s: %d] Playing at position %d\n", 
-                   (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", 
+            printf("[%s: %d] Playing at position %d\n",
+                   (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby",
                    players[i].id, i + 1);
         }
 
         simulateGameTime();
     }
 
-    printf("[%s: %d] Game <<ENDED>>\n", 
+    printf("[%s: %d] Game <<ENDED>>\n",
            (sport == BASEBALL) ? "Baseball" : (sport == FOOTBALL) ? "Football" : "Rugby", numPlayersRequired);
 }
 
@@ -190,7 +190,7 @@ void* playerThread(void* arg) {
                 int rugbyPlayersToPlay = (NUM_RUGBY_PLAYERS > 30) ? 30 : NUM_RUGBY_PLAYERS;
                 if (rugbyPlayersToPlay % 2 != 0) rugbyPlayersToPlay--;
                 if (rugbyPlayersToPlay >= 2) {
-                    playGame(RUGBY, rugbyPlayersToPlay); // Rugby needs at 
+                    playGame(RUGBY, rugbyPlayersToPlay); // Rugby needs at
                     isPlaying = 1;
                 }
 
