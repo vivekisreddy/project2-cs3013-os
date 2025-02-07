@@ -170,25 +170,35 @@ void* playerThread(void* arg) {
         int delayTime = rand() % 1000000;
         usleep(delayTime); // Simulate randomness
 
+        int isPlaying = 0;
+
         // Play the game for the current sport
         switch (player->sport) {
             case BASEBALL:
                 if (NUM_BASEBALL_PLAYERS >= 18) {
                     playGame(BASEBALL, 18); // Baseball needs 18 players
+                    isPlaying = 1;
                 }
                 break;
             case FOOTBALL:
                 if (NUM_FOOTBALL_PLAYERS >= 22) {
                     playGame(FOOTBALL, 22); // Football needs 22 players
+                    isPlaying = 1;
                 }
                 break;
             case RUGBY:
                 int rugbyPlayersToPlay = (NUM_RUGBY_PLAYERS > 30) ? 30 : NUM_RUGBY_PLAYERS;
                 if (rugbyPlayersToPlay % 2 != 0) rugbyPlayersToPlay--;
                 if (rugbyPlayersToPlay >= 2) {
-                    playGame(RUGBY, rugbyPlayersToPlay); // Rugby needs at least 2 players
+                    playGame(RUGBY, rugbyPlayersToPlay); // Rugby needs at 
+                    isPlaying = 1;
                 }
+
                 break;
+        }
+        if (!isPlaying) {
+            int sleepTime = rand() % 3 + 1; // Sleep for 1 to 3 seconds
+            sleep(sleepTime);
         }
 
         // Release the sport mutex so other threads of this sport can play next
