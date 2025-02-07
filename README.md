@@ -56,7 +56,7 @@ Game played for X seconds. Simulates the time taken for a game before ending.
 
 Game End Notice:
 
-[Baseball: 18] Game <<ENDED>>
+[Baseball: 18] Game <ENDED>
 
 Marks the end of a game so another one can start.
 
